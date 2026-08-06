@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Financer</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <header class="glass-panel">
+            <h1>📊 Resum Financer Mensual</h1>
+            <p>Compara les teves despeses amb la Nòmina i gestiona les categories</p>
+        </header>
+
+        <section id="filter-section" class="glass-panel">
+            <div class="filters-bar">
+                <div class="filter-group">
+                    <label for="filter-start-date">Des de:</label>
+                    <input type="date" id="filter-start-date">
+                </div>
+                <div class="filter-group">
+                    <label for="filter-end-date">Fins a:</label>
+                    <input type="date" id="filter-end-date">
+                </div>
+                <div class="filter-group">
+                    <label for="filter-category">Categoria:</label>
+                    <select id="filter-category">
+                        <option value="Totes">Totes</option>
+                        <!-- Injected by JS -->
+                    </select>
+                </div>
+                <button onclick="applyFilters()" class="btn-primary">Aplica Filtres</button>
+                
+                <div class="filter-group" style="margin-left: auto;">
+                    <label for="csv-upload">Nou Extracte (CSV):</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="file" id="csv-upload" accept=".csv" style="width: 220px;">
+                        <button onclick="uploadCSV()" class="btn-primary" id="upload-btn">Pujar</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <main>
+            <section id="summary-section" class="glass-panel">
+                <h2>Balanç Mensual</h2>
+                <div class="loading" id="loading-summary">Carregant dades (pot trigar si la IA està classificant)...</div>
+                <div id="summary-cards" class="cards-grid hidden">
+                    <!-- Cards injected by JS -->
+                </div>
+            </section>
+
+            <section id="analytics-section" class="glass-panel hidden">
+                <h2>Analítica i Estalvi</h2>
+                
+                <div class="chart-container" style="margin-bottom: 2rem;">
+                    <h3>Balanç Mensual (Ingressos vs Despeses)</h3>
+                    <canvas id="balanceChart" height="100"></canvas>
+                </div>
+
+                <div class="analytics-grid">
+                    <div class="chart-container">
+                        <h3>Distribució Global</h3>
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                    <div class="drill-down-container">
+                        <h3>On has gastat més? (Fes clic per veure el detall)</h3>
+                        <div id="category-drill-down" class="drill-down-list">
+                            <!-- Injected by JS -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="main-layout">
+                <section id="transactions-section" class="glass-panel main-col">
+                    <h2>Detall de Moviments</h2>
+                    <div class="filters">
+                        <input type="text" id="search-input" placeholder="Cerca per concepte o categoria...">
+                    </div>
+                    <div class="table-container">
+                        <table id="transactions-table">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Concepte</th>
+                                    <th>Import</th>
+                                    <th>Categoria</th>
+                                    <th>Accions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transactions-body">
+                                <!-- Rows injected by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <aside id="rules-section" class="glass-panel side-col">
+                    <h2>Regles Personalitzades</h2>
+                    <p class="subtitle">Afegeix una regla per categoritzar manualment</p>
+                    <form id="rule-form">
+                        <div class="form-group">
+                            <label for="rule-concept">Si el concepte conté:</label>
+                            <input type="text" id="rule-concept" required placeholder="Ex: CORTE INGLES">
+                        </div>
+                        <div class="form-group">
+                            <label for="rule-category">Assigna la categoria:</label>
+                            <input type="text" id="rule-category" list="categories-list" required placeholder="Tria o escriu una categoria...">
+                            <datalist id="categories-list">
+                                <!-- Options injected by JS -->
+                            </datalist>
+                        </div>
+                        <button type="submit" class="btn-primary">Afegir Regla</button>
+                    </form>
+
+                    <h3 class="mt-4">Regles Actuals</h3>
+                    <ul id="rules-list" class="rules-list">
+                        <!-- Rules injected by JS -->
+                    </ul>
+                </aside>
+            </div>
+        </main>
+    </div>
+    
+    <script src="/static/script.js"></script>
+</body>
+</html>
