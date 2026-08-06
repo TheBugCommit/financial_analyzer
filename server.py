@@ -13,9 +13,13 @@ app = Flask(__name__)
 
 client = genai.Client(api_key=API_KEY)
 
-DATABASE_URL = os.getenv("DATABASE_POSTGRES_URL", "sqlite:///local.db")
+DATABASE_URL = os.getenv("DATABASE_POSTGRES_URL", os.getenv("DATABASE_URL", "sqlite:///local.db"))
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# Fix for Supabase connection string parameters that psycopg2 rejects
+if "?" in DATABASE_URL and "sqlite" not in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.split("?")[0]
 
 engine = create_engine(DATABASE_URL)
 Base = declarative_base()
