@@ -9,7 +9,7 @@ load_dotenv()
 API_KEY = os.getenv("GEMINI_API_KEY")
 app = Flask(__name__)
 
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+client = genai.Client(api_key=API_KEY)
 
 DATA_FILE = 'data.csv'
 DEFAULT_DATA_FILE = 'extractDocument_20260805.csv'
