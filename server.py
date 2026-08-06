@@ -4,6 +4,8 @@ import os
 from flask import Flask, jsonify, request, render_template
 from google import genai
 from dotenv import load_dotenv
+from sqlalchemy import create_engine, Column, String
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 load_dotenv()
 API_KEY = os.getenv("GEMINI_API_KEY")
@@ -11,42 +13,55 @@ app = Flask(__name__)
 
 client = genai.Client(api_key=API_KEY)
 
-DATA_FILE = 'data.csv'
-DEFAULT_DATA_FILE = 'extractDocument_20260805.csv'
-RULES_FILE = 'rules.json'
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///local.db")
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-def get_data_file_path():
-    if os.path.exists(DATA_FILE):
-        return DATA_FILE
-    return DEFAULT_DATA_FILE
+engine = create_engine(DATABASE_URL)
+Base = declarative_base()
+Session = sessionmaker(bind=engine)
+
+class Rule(Base):
+    __tablename__ = 'rules'
+    concept = Column(String, primary_key=True)
+    category = Column(String)
+
+class AICache(Base):
+    __tablename__ = 'ai_cache'
+    concept = Column(String, primary_key=True)
+    category = Column(String)
+
+Base.metadata.create_all(engine)
+
+DEFAULT_DATA_FILE = 'extractDocument_20260805.csv'
 
 def load_rules():
-    if os.path.exists(RULES_FILE):
-        with open(RULES_FILE, 'r', encoding='utf-8') as f:
-            try:
-                return json.load(f)
-            except json.JSONDecodeError:
-                return {}
-    return {}
+    session = Session()
+    rules = session.query(Rule).all()
+    session.close()
+    return {r.concept: r.category for r in rules}
 
 def save_rules(rules):
-    with open(RULES_FILE, 'w', encoding='utf-8') as f:
-        json.dump(rules, f, indent=4, ensure_ascii=False)
-
-AI_CACHE_FILE = 'ai_cache.json'
+    session = Session()
+    session.query(Rule).delete()
+    for concept, category in rules.items():
+        session.add(Rule(concept=concept, category=category))
+    session.commit()
+    session.close()
 
 def load_ai_cache():
-    if os.path.exists(AI_CACHE_FILE):
-        with open(AI_CACHE_FILE, 'r', encoding='utf-8') as f:
-            try:
-                return json.load(f)
-            except json.JSONDecodeError:
-                return {}
-    return {}
+    session = Session()
+    cache = session.query(AICache).all()
+    session.close()
+    return {c.concept: c.category for c in cache}
 
 def save_ai_cache(cache):
-    with open(AI_CACHE_FILE, 'w', encoding='utf-8') as f:
-        json.dump(cache, f, indent=4, ensure_ascii=False)
+    session = Session()
+    session.query(AICache).delete()
+    for concept, category in cache.items():
+        session.add(AICache(concept=concept, category=category))
+    session.commit()
+    session.close()
 
 def get_all_categories(rules, ai_cache):
     base_categories = ["Supermercat", "Transport", "Oci", "Llar", "Subscripcions", "Ingressos", "Moviment Hucha", "Nòmina", "Altres"]
@@ -81,7 +96,14 @@ def categoritzar_amb_ia(conceptes, available_categories):
         return {}
 
 def process_data(start_date=None, end_date=None, filter_category=None):
-    df = pd.read_csv(get_data_file_path(), sep=';')
+    try:
+        df = pd.read_sql_table('transactions', engine)
+    except ValueError:
+        if os.path.exists(DEFAULT_DATA_FILE):
+            df = pd.read_csv(DEFAULT_DATA_FILE, sep=';')
+            df.to_sql('transactions', engine, if_exists='replace', index=False)
+        else:
+            return [], [], [], [], []
     
     df['Importe'] = df['Importe'].astype(str).str.replace('EUR', '').str.replace('.', '', regex=False).str.replace(',', '.', regex=False).astype(float)
     df['Saldo'] = df['Saldo'].astype(str).str.replace('EUR', '').str.replace('.', '', regex=False).str.replace(',', '.', regex=False).astype(float)
@@ -204,8 +226,10 @@ def upload_file():
         return jsonify({'error': 'No selected file'}), 400
     
     if file and file.filename.endswith('.csv'):
-        file.save(DATA_FILE)
-        return jsonify({'success': True, 'message': 'Fitxer pujat correctament'})
+        # Parse and save directly to DB
+        df = pd.read_csv(file, sep=';')
+        df.to_sql('transactions', engine, if_exists='replace', index=False)
+        return jsonify({'success': True, 'message': 'Fitxer pujat i guardat a la Base de Dades'})
     
     return jsonify({'error': 'Invalid file format. Must be CSV.'}), 400
 
