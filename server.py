@@ -13,7 +13,7 @@ app = Flask(__name__)
 
 client = genai.Client(api_key=API_KEY)
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///local.db")
+DATABASE_URL = os.getenv("DATABASE_POSTGRES_URL", "sqlite:///local.db")
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
