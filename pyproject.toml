@@ -22,3 +22,6 @@ requires-python = ">=3.9"
 dev = [
     "pytest"
 ]
+
+[tool.uv]
+package = false
