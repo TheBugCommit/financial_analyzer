@@ -161,18 +161,20 @@ def process_data(start_date=None, end_date=None, filter_category=None):
     if filter_category and filter_category != 'Totes':
         df = df[df['Categoria'] == filter_category]
     
-    # Process summary
-    # Despeses: Importe < 0 and not Hucha
-    gastos_regulars = df[(df['Importe'] < 0) & (df['Categoria'] != 'Moviment Hucha')].copy()
-    gastos_regulars['Importe'] = gastos_regulars['Importe'].abs()
+    # Process summary with Bizum logic
+    income_categories = ['Nòmina', 'Ingressos', 'Altres Ingressos']
+    special_categories = ['Moviment Hucha']
     
-    # Ingressos (sense nomina ni hucha)
-    ingressos_altres = df[(df['Importe'] > 0) & (df['Categoria'] != 'Moviment Hucha') & (df['Categoria'] != 'Nòmina')].copy()
+    is_expense_cat = ~df['Categoria'].isin(income_categories + special_categories)
     
-    # Nòmina
-    ingressos_nomina = df[(df['Importe'] > 0) & (df['Categoria'] == 'Nòmina')].copy()
+    gastos_regulars = df[is_expense_cat].copy()
+    # Net expense: -(-100) = 100, -(+50) = -50. Sum is 50.
+    gastos_regulars['Importe_Real'] = -gastos_regulars['Importe']
+    
+    ingressos_altres = df[(df['Categoria'].isin(['Ingressos', 'Altres Ingressos'])) & (df['Importe'] > 0)].copy()
+    ingressos_nomina = df[(df['Categoria'] == 'Nòmina') & (df['Importe'] > 0)].copy()
 
-    total_despeses_mes = gastos_regulars.groupby('Mes')['Importe'].sum().reset_index().rename(columns={'Importe': 'Despeses'})
+    total_despeses_mes = gastos_regulars.groupby('Mes')['Importe_Real'].sum().reset_index().rename(columns={'Importe_Real': 'Despeses'})
     total_nomina_mes = ingressos_nomina.groupby('Mes')['Importe'].sum().reset_index().rename(columns={'Importe': 'Nomina'})
     total_altres_ing = ingressos_altres.groupby('Mes')['Importe'].sum().reset_index().rename(columns={'Importe': 'Altres_Ingressos'})
     
@@ -189,10 +191,12 @@ def process_data(start_date=None, end_date=None, filter_category=None):
     transactions = df.fillna("").to_dict(orient='records')
     summary = resum_mensual.to_dict(orient='records')
     
-    cat_summary = gastos_regulars.groupby('Categoria')['Importe'].sum().reset_index().to_dict(orient='records')
-    cat_trend = gastos_regulars.groupby(['Mes', 'Categoria'])['Importe'].sum().reset_index().to_dict(orient='records')
+    cat_summary_df = gastos_regulars.groupby('Categoria')['Importe_Real'].sum().reset_index().rename(columns={'Importe_Real': 'Importe'})
+    cat_summary = cat_summary_df[cat_summary_df['Importe'] > 0].to_dict(orient='records')
     
-    cat_details = gastos_regulars.groupby(['Categoria', 'Concepto'])['Importe'].sum().reset_index()
+    cat_trend = gastos_regulars.groupby(['Mes', 'Categoria'])['Importe_Real'].sum().reset_index().rename(columns={'Importe_Real': 'Importe'}).to_dict(orient='records')
+    
+    cat_details = gastos_regulars.groupby(['Categoria', 'Concepto'])['Importe_Real'].sum().reset_index().rename(columns={'Importe_Real': 'Importe'})
     cat_details = cat_details.sort_values(by=['Categoria', 'Importe'], ascending=[True, False]).to_dict(orient='records')
     
     return transactions, summary, cat_summary, cat_trend, cat_details
@@ -261,6 +265,37 @@ def delete_rule():
             save_rules(rules)
         return jsonify({'status': 'ok'})
     return jsonify({'status': 'error'}), 400
+
+@app.route('/api/insights', methods=['POST'])
+def get_insights():
+    data = request.json
+    summary = data.get('summary', [])
+    cat_summary = data.get('cat_summary', [])
+    
+    prompt = f"""
+    Actua com un assessor financer expert. Analitza aquestes dades financeres d'un mes:
+    Resum: {summary}
+    Despeses per categoria: {cat_summary}
+    
+    Proporciona 3 punts forts (o dèbils) clars i 3 recomanacions de millora accionables per reduir despeses.
+    Retorna NOMÉS un JSON amb la següent estructura:
+    {{
+        "analisi": ["punt 1", "punt 2", "punt 3"],
+        "recomanacions": ["rec 1", "rec 2", "rec 3"]
+    }}
+    NO afegeixis text Markdown (com ```json) ni res fora del JSON pur.
+    """
+    
+    try:
+        response = client.models.generate_content(
+            model='gemini-3.5-flash-lite',
+            contents=prompt,
+        )
+        text_json = response.text.replace('```json', '').replace('```', '').strip()
+        return jsonify(json.loads(text_json))
+    except Exception as e:
+        print(f"Error AI Insights: {e}")
+        return jsonify({'error': 'No s\'ha pogut generar l\'anàlisi'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

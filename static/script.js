@@ -37,6 +37,9 @@ async function fetchData() {
         const data = await response.json();
         
         allTransactions = data.transactions;
+        allRules = data.rules;
+        globalSummary = data.summary;
+        globalCatSummary = data.cat_summary;
         
         renderSummary(data.summary);
         renderTransactions();
@@ -45,10 +48,13 @@ async function fetchData() {
         renderFilterCategories(data.categories);
         renderAnalytics(data.cat_summary, data.cat_details);
         renderBalanceChart(data.summary);
+        renderKeyStats(allTransactions, data.cat_summary);
         
         document.getElementById('loading-summary').classList.add('hidden');
         document.getElementById('summary-cards').classList.remove('hidden');
         document.getElementById('analytics-section').classList.remove('hidden');
+        document.getElementById('ai-insights-section').classList.remove('hidden');
+        document.getElementById('transactions-table').classList.remove('hidden');
     } catch (error) {
         console.error("Error fetching data:", error);
         document.getElementById('loading-summary').innerText = "Error carregant les dades. Revisa la consola.";
@@ -164,6 +170,7 @@ window.applyFilters = function() {
     document.getElementById('loading-summary').classList.remove('hidden');
     document.getElementById('summary-cards').classList.add('hidden');
     document.getElementById('analytics-section').classList.add('hidden');
+    document.getElementById('ai-insights-section').classList.add('hidden');
     fetchData();
 }
 
@@ -270,6 +277,90 @@ function renderBalanceChart(summary) {
             }
         }
     });
+}
+
+function renderKeyStats(transactions, catSummary) {
+    // Filter to only expenses (Importe < 0 and not Hucha)
+    // Wait, the API returns transactions with negative amounts for expenses.
+    // Bizums are positive amounts, but mapped to expense categories.
+    // To make it easy, we will calculate stats from transactions directly.
+    const expenseCats = catSummary.map(c => c.Categoria);
+    const expenses = transactions.filter(t => expenseCats.includes(t.Categoria));
+    
+    // Average daily spend
+    let totalSpend = catSummary.reduce((sum, cat) => sum + cat.Importe, 0);
+    
+    // Find unique days
+    const uniqueDays = new Set(expenses.map(t => t.Fecha)).size;
+    const avgDaily = uniqueDays > 0 ? (totalSpend / uniqueDays).toFixed(2) : '0.00';
+    document.getElementById('stat-daily-avg').innerText = avgDaily + ' €/dia actiu';
+    
+    // Max single expense (Importe is negative, so min value)
+    let maxExpense = null;
+    expenses.forEach(t => {
+        if (t.Importe < 0) {
+            if (!maxExpense || t.Importe < maxExpense.Importe) {
+                maxExpense = t;
+            }
+        }
+    });
+    
+    if (maxExpense) {
+        document.getElementById('stat-max-exp').innerHTML = `${Math.abs(maxExpense.Importe).toFixed(2)} €<br><small style="font-size:0.8rem; opacity:0.7">${maxExpense.Concepto}</small>`;
+    } else {
+        document.getElementById('stat-max-exp').innerText = '-';
+    }
+    
+    document.getElementById('stat-cat-count').innerText = catSummary.length;
+}
+
+window.fetchInsights = async function() {
+    const btn = document.getElementById('ai-btn');
+    btn.innerText = "🧠 Analitzant...";
+    btn.disabled = true;
+    document.getElementById('ai-content').classList.add('hidden');
+    
+    try {
+        const response = await fetch('/api/insights', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                summary: globalSummary,
+                cat_summary: globalCatSummary
+            })
+        });
+        const data = await response.json();
+        
+        if (data.error) throw new Error(data.error);
+        
+        const alist = document.getElementById('ai-analysis-list');
+        const rlist = document.getElementById('ai-recommendations-list');
+        alist.innerHTML = '';
+        rlist.innerHTML = '';
+        
+        if (data.analisi) {
+            data.analisi.forEach(p => {
+                const li = document.createElement('li');
+                li.innerText = p;
+                alist.appendChild(li);
+            });
+        }
+        
+        if (data.recomanacions) {
+            data.recomanacions.forEach(p => {
+                const li = document.createElement('li');
+                li.innerText = p;
+                rlist.appendChild(li);
+            });
+        }
+        
+        document.getElementById('ai-content').classList.remove('hidden');
+    } catch(e) {
+        alert("Error obtenint insights: " + e);
+    } finally {
+        btn.innerText = "Re-analitzar";
+        btn.disabled = false;
+    }
 }
 
 function renderAnalytics(catSummary, catDetails) {

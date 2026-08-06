@@ -45,6 +45,25 @@
         </section>
 
         <main>
+            <section id="ai-insights-section" class="glass-panel hidden" style="margin-bottom: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2>🤖 Consultor Financer IA</h2>
+                    <button onclick="fetchInsights()" class="btn-primary" id="ai-btn">Analitzar Mes</button>
+                </div>
+                <div id="ai-content" class="hidden" style="margin-top: 1rem;">
+                    <div class="analytics-grid">
+                        <div style="background: rgba(34, 197, 94, 0.1); padding: 1.5rem; border-radius: 8px;">
+                            <h3 style="color: var(--success); margin-bottom: 1rem;">🔍 Anàlisi</h3>
+                            <ul id="ai-analysis-list" style="margin-left: 1.5rem; line-height: 1.6;"></ul>
+                        </div>
+                        <div style="background: rgba(234, 179, 8, 0.1); padding: 1.5rem; border-radius: 8px;">
+                            <h3 style="color: var(--warning); margin-bottom: 1rem;">💡 Recomanacions</h3>
+                            <ul id="ai-recommendations-list" style="margin-left: 1.5rem; line-height: 1.6;"></ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <section id="summary-section" class="glass-panel">
                 <h2>Balanç Mensual</h2>
                 <div class="loading" id="loading-summary">Carregant dades (pot trigar si la IA està classificant)...</div>
@@ -56,6 +75,21 @@
             <section id="analytics-section" class="glass-panel hidden">
                 <h2>Analítica i Estalvi</h2>
                 
+                <div class="summary-cards" style="margin: 1.5rem 0;" id="key-stats">
+                    <div class="card">
+                        <h3>Despesa Mitjana Diària</h3>
+                        <p id="stat-daily-avg">0.00 €</p>
+                    </div>
+                    <div class="card">
+                        <h3>Despesa Més Alta</h3>
+                        <p id="stat-max-exp" style="font-size: 1.2rem; margin-top:0.5rem;">-</p>
+                    </div>
+                    <div class="card">
+                        <h3>Categories Amb Despesa</h3>
+                        <p id="stat-cat-count">0</p>
+                    </div>
+                </div>
+
                 <div class="chart-container" style="margin-bottom: 2rem;">
                     <h3>Balanç Mensual (Ingressos vs Despeses)</h3>
                     <canvas id="balanceChart" height="100"></canvas>
